@@ -1,0 +1,248 @@
+# AWS CloudFormation Template for TDSE Twitter Application
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'TDSE Twitter-like Application Infrastructure'
+
+Parameters:
+  Auth0Domain:
+    Type: String
+    Description: 'Auth0 domain'
+    Default: 'your-auth0-domain.auth0.com'
+  
+  Auth0Audience:
+    Type: String
+    Description: 'Auth0 API audience'
+    Default: 'your-api-identifier'
+
+Resources:
+  # S3 Bucket for Frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'tdse-twitter-frontend-${AWS::StackName}-${AWS::Region}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  # S3 Bucket Policy
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${FrontendBucket}/*'
+
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: tdse-twitter-users
+      AttributeDefinitions:
+        - AttributeName: auth0Id
+          AttributeType: S
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: auth0Id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UsernameIndex
+          KeySchema:
+            - AttributeName: username
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          BillingMode: PAY_PER_REQUEST
+      BillingMode: PAY_PER_REQUEST
+
+  PostsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: tdse-twitter-posts
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: N
+        - AttributeName: userId
+          AttributeType: N
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserPostsIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          BillingMode: PAY_PER_REQUEST
+        - IndexName: TimelineIndex
+          KeySchema:
+            - AttributeName: createdAt
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          BillingMode: PAY_PER_REQUEST
+      BillingMode: PAY_PER_REQUEST
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: tdse-twitter-api
+      Description: 'API Gateway for TDSE Twitter Application'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resources
+  UsersResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: users
+
+  PostsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: posts
+
+  StreamResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: stream
+
+  # Lambda Functions
+  UserServiceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: tdse-twitter-user-service
+      Runtime: java17
+      Handler: com.tdse.twitter.microservices.user.UserLambdaHandler::handleRequest
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          SPRING_PROFILES_ACTIVE: aws
+          AUTH0_DOMAIN: !Ref Auth0Domain
+          AUTH0_AUDIENCE: !Ref Auth0Audience
+          USERS_TABLE: !Ref UsersTable
+
+  PostServiceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: tdse-twitter-post-service
+      Runtime: java17
+      Handler: com.tdse.twitter.microservices.post.PostLambdaHandler::handleRequest
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          SPRING_PROFILES_ACTIVE: aws
+          AUTH0_DOMAIN: !Ref Auth0Domain
+          AUTH0_AUDIENCE: !Ref Auth0Audience
+          POSTS_TABLE: !Ref PostsTable
+          USERS_TABLE: !Ref UsersTable
+
+  StreamServiceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: tdse-twitter-stream-service
+      Runtime: java17
+      Handler: com.tdse.twitter.microservices.stream.StreamLambdaHandler::handleRequest
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          SPRING_PROFILES_ACTIVE: aws
+          AUTH0_DOMAIN: !Ref Auth0Domain
+          AUTH0_AUDIENCE: !Ref Auth0Audience
+          POSTS_TABLE: !Ref PostsTable
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: tdse-twitter-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource:
+                  - !GetAtt UsersTable.Arn
+                  - !GetAtt PostsTable.Arn
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.DomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingOptimized
+        Enabled: true
+        HttpVersion: http2
+        DefaultRootObject: index.html
+
+Outputs:
+  FrontendURL:
+    Description: 'Frontend URL'
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+
+  ApiGatewayURL:
+    Description: 'API Gateway URL'
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+
+  UsersTableName:
+    Description: 'Users DynamoDB table name'
+    Value: !Ref UsersTable
+
+  PostsTableName:
+    Description: 'Posts DynamoDB table name'
+    Value: !Ref PostsTable

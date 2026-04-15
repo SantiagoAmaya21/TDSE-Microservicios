@@ -1,0 +1,42 @@
+service: tdse-twitter-post-service
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: java17
+  region: us-east-1
+  timeout: 30
+  memorySize: 512
+  environment:
+    SPRING_PROFILES_ACTIVE: aws
+    AUTH0_DOMAIN: ${opt:auth0Domain, 'YOUR_AUTH0_DOMAIN.auth0.com'}
+    AUTH0_AUDIENCE: ${opt:auth0Audience, 'YOUR_API_IDENTIFIER'}
+
+package:
+  artifact: target/post-service-1.0.0.jar
+
+functions:
+  postService:
+    handler: com.tdse.twitter.microservices.post.PostLambdaHandler::handleRequest
+    events:
+      - http:
+          path: /posts/{proxy+}
+          method: ANY
+          cors: true
+      - http:
+          path: /posts
+          method: ANY
+          cors: true
+    environment:
+      FUNCTION_NAME: postService
+
+plugins:
+  - serverless-spring-boot
+
+custom:
+  serverless-spring-boot:
+    initTimeout: 30
+    enableWarmup: true
+    warmup:
+      enabled: true
+      concurrency: 1

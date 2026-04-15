@@ -1,0 +1,42 @@
+service: tdse-twitter-stream-service
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: java17
+  region: us-east-1
+  timeout: 30
+  memorySize: 512
+  environment:
+    SPRING_PROFILES_ACTIVE: aws
+    AUTH0_DOMAIN: ${opt:auth0Domain, 'YOUR_AUTH0_DOMAIN.auth0.com'}
+    AUTH0_AUDIENCE: ${opt:auth0Audience, 'YOUR_API_IDENTIFIER'}
+
+package:
+  artifact: target/stream-service-1.0.0.jar
+
+functions:
+  streamService:
+    handler: com.tdse.twitter.microservices.stream.StreamLambdaHandler::handleRequest
+    events:
+      - http:
+          path: /stream/{proxy+}
+          method: ANY
+          cors: true
+      - http:
+          path: /stream
+          method: ANY
+          cors: true
+    environment:
+      FUNCTION_NAME: streamService
+
+plugins:
+  - serverless-spring-boot
+
+custom:
+  serverless-spring-boot:
+    initTimeout: 30
+    enableWarmup: true
+    warmup:
+      enabled: true
+      concurrency: 1
