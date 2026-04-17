@@ -12,7 +12,6 @@ public class DataInitializer {
     @Bean
     CommandLineRunner init() {
         return args -> {
-            // This can be used for initial data setup if needed
             System.out.println("TDSE Twitter-like Application started successfully!");
             System.out.println("Swagger UI available at: http://localhost:8080/swagger-ui.html");
             System.out.println("H2 Console available at: http://localhost:8080/h2-console");

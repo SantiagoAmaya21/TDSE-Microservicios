@@ -23,8 +23,6 @@ public class JwtAuthenticationConverter implements Converter<Jwt, JwtAuthenticat
     
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
         Map<String, Object> claims = jwt.getClaims();
-        
-        // Extract permissions from the 'permissions' claim if present
         if (claims.containsKey("permissions")) {
             @SuppressWarnings("unchecked")
             List<String> permissions = (List<String>) claims.get("permissions");
@@ -33,7 +31,6 @@ public class JwtAuthenticationConverter implements Converter<Jwt, JwtAuthenticat
                     .collect(Collectors.toList());
         }
         
-        // Extract scopes from the 'scope' claim
         if (claims.containsKey("scope")) {
             String scope = claims.get("scope").toString();
             return List.of(scope.split(" ")).stream()
