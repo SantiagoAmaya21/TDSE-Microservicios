@@ -1,4 +1,7 @@
 # TDSE Twitter-like Application
+#### Santiago Amaya
+#### Ricardo Ayala
+#### Santiago Botero
 
 A secure Twitter-like application with microservices architecture and Auth0 authentication, built as part of the TDSE course assignment.
 
