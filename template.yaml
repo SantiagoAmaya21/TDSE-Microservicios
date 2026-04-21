@@ -7,7 +7,6 @@ Globals:
     Timeout: 30
     MemorySize: 512
     Runtime: java17
-    Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
     Environment:
       Variables:
         AUTH0_ISSUER: !Ref Auth0Issuer
@@ -33,6 +32,7 @@ Resources:
       Handler: 'com.tdse.user.LambdaHandler::handleRequest'
       CodeUri: user-service/target/user-service-1.0.0.jar
       Description: 'User Service Lambda Function'
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Environment:
         Variables:
           USERS_TABLE: !Ref UsersTable
@@ -45,6 +45,7 @@ Resources:
       Handler: 'com.tdse.post.LambdaHandler::handleRequest'
       CodeUri: post-service/target/post-service-1.0.0.jar
       Description: 'Post Service Lambda Function'
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Environment:
         Variables:
           POSTS_TABLE: !Ref PostsTable
@@ -57,6 +58,7 @@ Resources:
       Handler: 'com.tdse.stream.LambdaHandler::handleRequest'
       CodeUri: stream-service/target/stream-service-1.0.0.jar
       Description: 'Stream Service Lambda Function'
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Environment:
         Variables:
           STREAMS_TABLE: !Ref StreamsTable
@@ -70,8 +72,7 @@ Resources:
         DefaultAuthorizer: JwtAuthorizer
         Authorizers:
           JwtAuthorizer:
-            IdentitySource:
-              - "$request.header.Authorization"
+            IdentitySource: "$request.header.Authorization"
             JwtConfiguration:
               issuer: !Ref Auth0Issuer
               audience:
