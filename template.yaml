@@ -12,7 +12,6 @@ Globals:
         AUTH0_ISSUER: !Ref Auth0Issuer
         AUTH0_AUDIENCE: !Ref Auth0Audience
         SPRING_PROFILES_ACTIVE: learnerlab
-        AWS_REGION: us-east-1
 
 Parameters:
   Auth0Issuer:
@@ -27,6 +26,8 @@ Parameters:
 Resources:
   UserLambdaFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      SkipBuild: true
     Properties:
       FunctionName: !Sub '${AWS::StackName}-user-service'
       Handler: 'com.tdse.user.LambdaHandler::handleRequest'
@@ -40,6 +41,8 @@ Resources:
 
   PostLambdaFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      SkipBuild: true
     Properties:
       FunctionName: !Sub '${AWS::StackName}-post-service'
       Handler: 'com.tdse.post.LambdaHandler::handleRequest'
@@ -53,6 +56,8 @@ Resources:
 
   StreamLambdaFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      SkipBuild: true
     Properties:
       FunctionName: !Sub '${AWS::StackName}-stream-service'
       Handler: 'com.tdse.stream.LambdaHandler::handleRequest'
