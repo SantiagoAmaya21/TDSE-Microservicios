@@ -19,11 +19,11 @@ Parameters:
   Auth0Issuer:
     Type: String
     Description: 'Auth0 Issuer URL'
-    Default: 'https://your-domain.auth0.com'
+    Default: 'https://dev-2ewcpm72kdub4wzu.auth0.com/'
   Auth0Audience:
     Type: String
     Description: 'Auth0 Audience'
-    Default: 'https://your-domain.auth0.com/api/v2/'
+    Default: 'https://api.twitter.com'
 
 Resources:
   UserLambdaFunction:
@@ -31,7 +31,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-user-service'
       Handler: 'com.tdse.user.LambdaHandler::handleRequest'
-      CodeUri: user-service/
+      CodeUri: user-service/target/user-service-1.0.0.jar
       Description: 'User Service Lambda Function'
       Environment:
         Variables:
@@ -43,7 +43,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-post-service'
       Handler: 'com.tdse.post.LambdaHandler::handleRequest'
-      CodeUri: post-service/
+      CodeUri: post-service/target/post-service-1.0.0.jar
       Description: 'Post Service Lambda Function'
       Environment:
         Variables:
@@ -55,7 +55,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-stream-service'
       Handler: 'com.tdse.stream.LambdaHandler::handleRequest'
-      CodeUri: stream-service/
+      CodeUri: stream-service/target/stream-service-1.0.0.jar
       Description: 'Stream Service Lambda Function'
       Environment:
         Variables:
@@ -70,11 +70,12 @@ Resources:
         DefaultAuthorizer: JwtAuthorizer
         Authorizers:
           JwtAuthorizer:
+            IdentitySource:
+              - "$request.header.Authorization"
             JwtConfiguration:
               issuer: !Ref Auth0Issuer
               audience:
                 - !Ref Auth0Audience
-            IdentitySource: "$request.header.Authorization"
       CorsConfiguration:
         AllowMethods:
           - GET
@@ -90,6 +91,7 @@ Resources:
           - X-Amz-Security-Token
         AllowOrigins:
           - "*"
+        MaxAge: 300
       DefaultRouteSettings:
         ThrottlingBurstLimit: 100
         ThrottlingRateLimit: 50
@@ -101,6 +103,7 @@ Resources:
       RouteKey: 'ANY /api/users/{proxy+}'
       Target: !Sub 'integrations/${UserApiIntegration}'
       AuthorizationType: JWT
+      AuthorizerId: !GetAtt ApiGatewayApi.DefaultAuthorizer
 
   UserApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -117,6 +120,7 @@ Resources:
       RouteKey: 'ANY /api/posts/{proxy+}'
       Target: !Sub 'integrations/${PostApiIntegration}'
       AuthorizationType: JWT
+      AuthorizerId: !GetAtt ApiGatewayApi.DefaultAuthorizer
 
   PostApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -133,6 +137,7 @@ Resources:
       RouteKey: 'ANY /api/stream/{proxy+}'
       Target: !Sub 'integrations/${StreamApiIntegration}'
       AuthorizationType: JWT
+      AuthorizerId: !GetAtt ApiGatewayApi.DefaultAuthorizer
 
   StreamApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
